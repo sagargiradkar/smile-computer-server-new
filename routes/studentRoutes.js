@@ -1,15 +1,19 @@
 const express = require("express");
 const {
   registerStudent,
-  loginStudent,
+  verifyEmail,
+  initiateLogin,
+  verifyLogin,
+  forgotPassword,
+  resetPassword,
   getStudentProfile,
   updateStudentProfile,
   applyJob,
   getAppliedJobs,
-} = require("../controllers/studentController"); // Importing controller functions
+} = require("../controllers/studentController");
 
-const authMiddleware = require("../middlewares/authMiddleware"); // Authentication middleware
-const roleMiddleware = require("../middlewares/roleMiddleware"); // Role validation middleware
+const authMiddleware = require("../middlewares/authMiddleware");
+const roleMiddleware = require("../middlewares/roleMiddleware");
 
 const router = express.Router();
 
@@ -17,204 +21,195 @@ const router = express.Router();
  * @swagger
  * /api/student/register:
  *   post:
- *     summary: Register a new student
+ *     summary: Register a new student and send verification OTP
  *     tags:
- *       - Student
+ *       - Student Authentication
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - password
+ *               - enrollment_no
+ *               - branch
+ *               - cgpa
+ *               - resume_link
  *             properties:
  *               name:
  *                 type: string
- *                 example: "John Doe"
  *               email:
  *                 type: string
- *                 example: "john.doe@example.com"
  *               password:
  *                 type: string
- *                 example: "password12345"
- *               phone:
+ *               enrollment_no:
  *                 type: string
- *                 example: "9876543210"
- *               course:
+ *               branch:
  *                 type: string
- *                 example: "B.Tech"
- *               year:
+ *               cgpa:
  *                 type: number
- *                 example: 2023
+ *               resume_link:
+ *                 type: string
  *     responses:
  *       201:
- *         description: Student registered successfully
+ *         description: Registration initiated, verification OTP sent
  *       400:
- *         description: Invalid input
+ *         description: Invalid input or email already registered
  */
 router.post("/register", registerStudent);
 
 /**
  * @swagger
- * /api/student/login:
+ * /api/student/verify-email:
  *   post:
- *     summary: Student login
+ *     summary: Verify email using OTP
  *     tags:
- *       - Student
+ *       - Student Authentication
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - email
+ *               - otp
  *             properties:
  *               email:
  *                 type: string
- *                 example: "john.doe@example.com"
- *               password:
+ *               otp:
  *                 type: string
- *                 example: "password12345"
  *     responses:
  *       200:
- *         description: Login successful
- *       401:
- *         description: Invalid credentials
+ *         description: Email verified successfully
+ *       400:
+ *         description: Invalid or expired OTP
  */
-router.post("/login", loginStudent);
+router.post("/verify-email", verifyEmail);
 
 /**
  * @swagger
- * /api/student/profile:
- *   get:
- *     summary: Get the profile of the logged-in student
+ * /api/student/login:
+ *   post:
+ *     summary: Initiate student login (Step 1 - Send OTP)
  *     tags:
- *       - Student
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Successfully retrieved the student's profile
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: string
- *                   example: "643e4c89c10bfc09511e4cb9"
- *                 name:
- *                   type: string
- *                   example: "John Doe"
- *                 email:
- *                   type: string
- *                   example: "john.doe@example.com"
- *                 phone:
- *                   type: string
- *                   example: "9876543210"
- *                 course:
- *                   type: string
- *                   example: "B.Tech"
- *                 year:
- *                   type: number
- *                   example: 2023
- *       401:
- *         description: Unauthorized
- */
-router.get("/profile", authMiddleware, roleMiddleware("student"), getStudentProfile);
-
-/**
- * @swagger
- * /api/student/profile:
- *   put:
- *     summary: Update the profile of the logged-in student
- *     tags:
- *       - Student
- *     security:
- *       - bearerAuth: []
+ *       - Student Authentication
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - email
+ *               - password
  *             properties:
- *               name:
+ *               email:
  *                 type: string
- *                 example: "John Doe"
- *               phone:
+ *               password:
  *                 type: string
- *                 example: "9876543210"
- *               course:
- *                 type: string
- *                 example: "B.Tech"
- *               year:
- *                 type: number
- *                 example: 2023
  *     responses:
  *       200:
- *         description: Successfully updated the student's profile
+ *         description: Login OTP sent successfully
  *       401:
- *         description: Unauthorized
+ *         description: Invalid credentials
  */
-router.put("/profile", authMiddleware, roleMiddleware("student"), updateStudentProfile);
+router.post("/login", initiateLogin);
 
 /**
  * @swagger
- * /api/student/apply/{jobId}:
+ * /api/student/verify-login:
  *   post:
- *     summary: Apply for a job (only for the logged-in student)
+ *     summary: Complete login with OTP (Step 2)
  *     tags:
- *       - Student
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: jobId
- *         schema:
- *           type: string
- *         required: true
- *         description: The ID of the job to apply for
+ *       - Student Authentication
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
+ *             properties:
+ *               email:
+ *                 type: string
+ *               otp:
+ *                 type: string
  *     responses:
  *       200:
- *         description: Job application successful
- *       404:
- *         description: Job not found
+ *         description: Login successful, returns JWT token
  *       400:
- *         description: Already applied
+ *         description: Invalid or expired OTP
  */
-router.post("/apply/:jobId", authMiddleware, roleMiddleware("student"), applyJob);
+router.post("/verify-login", verifyLogin);
 
 /**
  * @swagger
- * /api/student/applied-jobs:
- *   get:
- *     summary: Get all jobs applied for by the student
+ * /api/student/forgot-password:
+ *   post:
+ *     summary: Request password reset OTP
  *     tags:
- *       - Student
- *     security:
- *       - bearerAuth: []
+ *       - Student Authentication
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
  *     responses:
  *       200:
- *         description: Successfully fetched all applied jobs
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   jobId:
- *                     type: string
- *                     example: "643e4c89c10bfc09511e4cb8"
- *                   title:
- *                     type: string
- *                     example: "Software Developer"
- *                   company:
- *                     type: string
- *                     example: "Tech Innovators"
- *                   appliedDate:
- *                     type: string
- *                     example: "2023-10-01T00:00:00.000Z"
+ *         description: Password reset OTP sent
+ *       404:
+ *         description: Student not found
  */
+router.post("/forgot-password", forgotPassword);
+
+/**
+ * @swagger
+ * /api/student/reset-password:
+ *   post:
+ *     summary: Reset password using OTP
+ *     tags:
+ *       - Student Authentication
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
+ *               - newPassword
+ *             properties:
+ *               email:
+ *                 type: string
+ *               otp:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ *       400:
+ *         description: Invalid or expired OTP
+ */
+router.post("/reset-password", resetPassword);
+
+// Existing protected routes
+router.get("/profile", authMiddleware, roleMiddleware("student"), getStudentProfile);
+router.put("/profile", authMiddleware, roleMiddleware("student"), updateStudentProfile);
+router.post("/apply/:jobId", authMiddleware, roleMiddleware("student"), applyJob);
 router.get("/applied-jobs", authMiddleware, roleMiddleware("student"), getAppliedJobs);
 
 module.exports = router;

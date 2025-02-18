@@ -1,82 +1,88 @@
-const mongoose = require("mongoose");
+// models/Student.js
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-const studentSchema = new mongoose.Schema(
-  {
-    name: {
-      type: String,
-      required: true,
-    },
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    password: {
-      type: String,
-      required: true,
-    },
-    enrollment_no: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    branch: {
-      type: String,
-      required: true,
-    },
-    cgpa: {
-      type: Number,
-      required: true,
-      min: 0,
-      max: 10,
-    },
-    placed_status: {
-      type: Boolean,
-      default: false,
-    },
-    placement_info: [
-      {
-        company: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Company",
-        },
-        salary: {
-          type: Number,
-          required: true,
-        },
-        role: {
-          type: String,
-          required: true,
-        },
-        date: {
-          type: Date,
-          default: Date.now,
-        },
-      },
-    ],
-    applied_jobs: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "JobPost",
-      },
-    ],
-    resume_link: {
-      type: String,
-      required: true,
-    },
-    createdAt: {
-      type: Date,
-      default: Date.now,
-    },
-    updatedAt: {
-      type: Date,
-      default: Date.now,
-    },
+const studentSchema = new Schema({
+  name: {
+    type: String,
+    required: true
   },
-  {
-    timestamps: true, // Automatically adds `createdAt` and `updatedAt` fields
-  }
-);
+  email: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  password: {
+    type: String,
+    required: true
+  },
+  enrollment_no: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  branch: {
+    type: String,
+    required: true
+  },
+  cgpa: {
+    type: Number,
+    required: true
+  },
+  resume_link: {
+    type: String,
+    required: true
+  },
+  isEmailVerified: {
+    type: Boolean,
+    default: false
+  },
+  otp: String,
+  otpExpiry: Date,
+  otpType: {
+    type: String,
+    enum: ['registration', 'login', 'reset']
+  },
+  otpAttempts: {
+    type: Number,
+    default: 0
+  },
+  accountLocked: {
+    type: Boolean,
+    default: false
+  },
+  lockUntil: Date,
+  appliedJobs: [{
+    type: Schema.Types.ObjectId,
+    ref: 'JobPost'
+  }]
+});
 
-// Export the Student model
-module.exports = mongoose.model("Student", studentSchema);
+studentSchema.methods.isOtpValid = function(inputOtp) {
+  return this.otp === inputOtp && new Date() < this.otpExpiry;
+};
+
+studentSchema.methods.incrementOtpAttempts = async function() {
+  this.otpAttempts += 1;
+  if (this.otpAttempts >= 3) {
+    this.accountLocked = true;
+    this.lockUntil = new Date(Date.now() + 30 * 60 * 1000); // Lock for 30 minutes
+  }
+  await this.save();
+};
+
+studentSchema.methods.clearOtpFields = async function() {
+  this.otp = undefined;
+  this.otpExpiry = undefined;
+  this.otpType = undefined;
+  await this.save();
+};
+
+studentSchema.methods.resetOtpAttempts = async function() {
+  this.otpAttempts = 0;
+  this.accountLocked = false;
+  this.lockUntil = undefined;
+  await this.save();
+};
+
+module.exports = mongoose.model('Student', studentSchema);
