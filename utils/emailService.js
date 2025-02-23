@@ -125,7 +125,7 @@ const createEmailTemplate = (title, content) => {
     <body>
       <div class="email-container">
         <div class="header">
-          <img src="${process.env.LOGO_URL || 'https://your-logo-url.com/logo.png'}" alt="Smile Computer Education" class="logo">
+          <img src="${process.env.LOGO_URL || 'https://res.cloudinary.com/disl8qg3k/image/upload/v1740311235/smile-computer/z7utqflxrmuajm9kkdwj.png'}" alt="Smile Computer Education" class="logo">
           <h1>${title}</h1>
         </div>
         <div class="content">

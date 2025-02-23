@@ -26,7 +26,7 @@ if (process.env.NODE_ENV === "development") {
 
 // Base route for health check
 app.get("/", (req, res) => {
-  res.send("TPO Server is running...");
+  res.send("Smile Compter Server is running...");
 });
 
 // Import routes
