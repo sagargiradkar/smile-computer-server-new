@@ -27,89 +27,148 @@ transporter.verify((error, success) => {
 
 // Enhanced email styles with Smile Computer Education branding
 const emailStyles = `
+  /* Brand Colors */
+:root {
+  --primary-blue: #42C9D1;      /* Turquoise blue from logo */
+  --secondary-blue: #1E2A4A;    /* Dark navy background */
+  --accent-blue: #34A5AB;       /* Darker shade of primary for hover states */
+  --text-dark: #1A1A1A;
+  --text-light: #FFFFFF;
+  --background-light: #F9F9F9;
+  --shadow-color: rgba(66, 201, 209, 0.1);
+}
+
+.email-container {
+  max-width: 600px;
+  margin: 0 auto;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  color: var(--text-dark);
+  background-color: var(--background-light);
+}
+
+.header {
+  background: linear-gradient(135deg, var(--secondary-blue) 0%, var(--primary-blue) 100%);
+  padding: 30px 20px;
+  text-align: center;
+  border-radius: 0 0 20px 20px;
+}
+
+.logo {
+  width: 150px;
+  height: auto;
+  margin-bottom: 15px;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+}
+
+.header h1 {
+  color: var(--text-light);
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.content {
+  padding: 40px 30px;
+  line-height: 1.6;
+  background-color: var(--text-light);
+  border-radius: 15px;
+  margin: 20px;
+  box-shadow: 0 4px 15px var(--shadow-color);
+}
+
+.footer {
+  background-color: var(--secondary-blue);
+  padding: 20px;
+  text-align: center;
+  color: var(--text-light);
+  font-size: 14px;
+  border-radius: 20px 20px 0 0;
+}
+
+.button {
+  display: inline-block;
+  padding: 12px 24px;
+  background: var(--primary-blue);
+  color: var(--text-light);
+  text-decoration: none;
+  border-radius: 25px;
+  margin: 20px 0;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px var(--shadow-color);
+}
+
+.button:hover {
+  background: var(--accent-blue);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px var(--shadow-color);
+}
+
+.otp-box {
+  background-color: var(--background-light);
+  padding: 25px;
+  border-radius: 15px;
+  text-align: center;
+  margin: 20px 0;
+  border: 2px dashed var(--primary-blue);
+  box-shadow: inset 0 0 15px var(--shadow-color);
+}
+
+.otp-code {
+  font-size: 32px;
+  letter-spacing: 8px;
+  color: var(--primary-blue);
+  font-weight: bold;
+  padding: 15px;
+  background: var(--text-light);
+  border-radius: 10px;
+  display: inline-block;
+  box-shadow: 0 2px 10px var(--shadow-color);
+}
+
+.social-links {
+  margin-top: 20px;
+}
+
+.social-links a {
+  color: var(--text-light);
+  margin: 0 10px;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.social-links a:hover {
+  color: var(--primary-blue);
+}
+
+.contact-info {
+  margin-top: 15px;
+  font-size: 13px;
+  color: var(--text-light);
+  opacity: 0.9;
+}
+
+/* Responsive Design */
+@media (max-width: 600px) {
   .email-container {
-    max-width: 600px;
-    margin: 0 auto;
-    font-family: 'Segoe UI', Arial, sans-serif;
-    color: #333333;
-    background-color: #f9f9f9;
+    margin: 10px;
   }
-  .header {
-    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-    padding: 30px 20px;
-    text-align: center;
-  }
-  .logo {
-    width: 150px;
-    height: auto;
-    margin-bottom: 15px;
-  }
-  .header h1 {
-    color: white;
-    margin: 0;
-    font-size: 28px;
-    font-weight: 600;
-  }
+  
   .content {
-    padding: 40px 30px;
-    line-height: 1.6;
-    background-color: #ffffff;
-    border-radius: 8px;
-    margin: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 20px 15px;
+    margin: 10px;
   }
-  .footer {
-    background-color: #1e3c72;
-    padding: 20px;
-    text-align: center;
-    color: white;
-    font-size: 14px;
+  
+  .header h1 {
+    font-size: 24px;
   }
-  .button {
-    display: inline-block;
-    padding: 12px 24px;
-    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-    color: white;
-    text-decoration: none;
-    border-radius: 25px;
-    margin: 20px 0;
-    font-weight: 600;
-    transition: transform 0.2s;
-  }
-  .button:hover {
-    transform: translateY(-2px);
-  }
-  .otp-box {
-    background-color: #f8f9fa;
-    padding: 25px;
-    border-radius: 10px;
-    text-align: center;
-    margin: 20px 0;
-    border: 2px dashed #1e3c72;
-  }
+  
   .otp-code {
-    font-size: 32px;
-    letter-spacing: 8px;
-    color: #1e3c72;
-    font-weight: bold;
-    padding: 10px;
-    background: #fff;
-    border-radius: 5px;
-    display: inline-block;
+    font-size: 24px;
+    letter-spacing: 6px;
   }
-  .social-links {
-    margin-top: 20px;
-  }
-  .social-links a {
-    color: white;
-    margin: 0 10px;
-    text-decoration: none;
-  }
-  .contact-info {
-    margin-top: 15px;
-    font-size: 13px;
-    color: #ffffff;
-  }
+}
 `;
 
 // Enhanced email template
