@@ -58,3 +58,4 @@ __snapshots__/
 # Docker-specific files
 docker-compose.override.yml
 .env.docker
+.vercel

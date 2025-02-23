@@ -4,6 +4,8 @@ const dotenv = require("dotenv");
 const colors = require("colors");
 const morgan = require("morgan");
 const cors = require("cors");
+const cron = require("node-cron");
+const PendingRegistration = require("./models/PendingRegistration");
 const { swaggerUi, swaggerSpec } = require("./config/swagger");
 // Initialize the app
 const app = express();
@@ -29,18 +31,17 @@ app.get("/", (req, res) => {
 
 // Import routes
 const studentRoutes = require("./routes/studentRoutes");
-const tpoAdminRoutes = require("./routes/tpoAdminRoutes");
-const companyRoutes = require("./routes/companyRoutes");
-const jobPostRoutes = require("./routes/jobPostRoutes");
-
+// Runs every hour
+cron.schedule("0 * * * *", async () => {
+  const now = new Date();
+  await PendingRegistration.deleteMany({ otpExpiry: { $lt: now } });
+  console.log("Deleted expired pending registrations");
+});
 // Register routes
 app.use("/api/student", studentRoutes);
-app.use("/api/tpo-admin", tpoAdminRoutes);
-app.use("/api/company", companyRoutes);
-app.use("/api/job-post", jobPostRoutes);
+
 // Serve Swagger UI at /api-docs
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-
 
 // Start the server
 const PORT = process.env.PORT || 5000;

@@ -1,4 +1,3 @@
-// models/Student.js
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
@@ -16,20 +15,7 @@ const studentSchema = new Schema({
     type: String,
     required: true
   },
-  enrollment_no: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  branch: {
-    type: String,
-    required: true
-  },
-  cgpa: {
-    type: Number,
-    required: true
-  },
-  resume_link: {
+  mobile: {
     type: String,
     required: true
   },
@@ -52,10 +38,6 @@ const studentSchema = new Schema({
     default: false
   },
   lockUntil: Date,
-  appliedJobs: [{
-    type: Schema.Types.ObjectId,
-    ref: 'JobPost'
-  }]
 });
 
 studentSchema.methods.isOtpValid = function(inputOtp) {

@@ -1,5 +1,4 @@
 const Student = require("../models/Student");
-const JobPost = require("../models/JobPost");
 const asyncHandler = require("express-async-handler");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -9,17 +8,15 @@ const {
   getOTPExpiry,
   sendRegistrationSuccessEmail,
   sendLoginSuccessEmail,
-  sendPasswordResetSuccessEmail
+  sendPasswordResetSuccessEmail,
 } = require("../utils/emailService");
-
+const PendingRegistration = require("../models/PendingRegistration");
 // Utility Services
 const authService = {
   generateToken: (userId) => {
-    return jwt.sign(
-      { id: userId, role: "student" },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRE || '1h' }
-    );
+    return jwt.sign({ id: userId, role: "student" }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRE || "1h",
+    });
   },
 
   validateRequiredFields: (data, fields) => {
@@ -32,7 +29,7 @@ const authService = {
 
   hashPassword: async (password) => {
     return await bcrypt.hash(password, 10);
-  }
+  },
 };
 
 const studentService = {
@@ -41,7 +38,7 @@ const studentService = {
     if (enrollment_no) {
       query.$or = [{ email }, { enrollment_no }];
     }
-    
+
     const existingStudent = await Student.findOne(query);
     if (existingStudent) {
       if (existingStudent.email === email) {
@@ -56,84 +53,123 @@ const studentService = {
 
   async handleOTPVerification(student, otp) {
     if (student.accountLocked && student.lockUntil > new Date()) {
-      throw new Error(`Account locked. Try again after ${student.lockUntil.toLocaleString()}`);
+      throw new Error(
+        `Account locked. Try again after ${student.lockUntil.toLocaleString()}`
+      );
     }
 
     if (!student.isOtpValid(otp)) {
       await student.incrementOtpAttempts();
       if (student.accountLocked) {
-        throw new Error(`Too many failed attempts. Account locked until ${student.lockUntil.toLocaleString()}`);
+        throw new Error(
+          `Too many failed attempts. Account locked until ${student.lockUntil.toLocaleString()}`
+        );
       }
-      throw new Error(`Invalid or expired OTP. ${3 - student.otpAttempts} attempts remaining`);
+      throw new Error(
+        `Invalid or expired OTP. ${3 - student.otpAttempts} attempts remaining`
+      );
     }
 
     await student.clearOtpFields();
     await student.resetOtpAttempts();
-  }
+  },
 };
 
-// Controller Functions
 const registerStudent = asyncHandler(async (req, res) => {
-  const requiredFields = ['name', 'email', 'password', 'enrollment_no', 'branch', 'cgpa', 'resume_link'];
+  const requiredFields = ["name", "email", "password", "mobile"];
   authService.validateRequiredFields(req.body, requiredFields);
 
-  await studentService.validateStudent(req.body.email, req.body.enrollment_no);
+  await studentService.validateStudent(req.body.email);
 
   const otp = generateOTP();
   const hashedPassword = await authService.hashPassword(req.body.password);
 
-  const student = await Student.create({
-    ...req.body,
-    password: hashedPassword,
-    otp,
-    otpExpiry: getOTPExpiry(),
-    otpType: 'registration',
-    isEmailVerified: false
-  });
+  try {
+    // Send OTP email first
+    await sendOTPEmail(req.body.email, otp, "registration");
 
-  await sendOTPEmail(student.email, otp, 'registration');
+    // Store in PendingRegistration **only if email sending is successful**
+    await PendingRegistration.create({
+      name: req.body.name,
+      email: req.body.email,
+      password: hashedPassword,
+      mobile: req.body.mobile,
+      otp,
+      otpExpiry: getOTPExpiry(),
+    });
 
-  res.status(201).json({
-    message: "Please verify your email with the OTP sent",
-    email: student.email
-  });
+    res.status(201).json({
+      message: "OTP sent to email. Verify OTP to complete registration.",
+      email: req.body.email,
+    });
+  } catch (error) {
+    console.error("Error sending OTP email:", error);
+    res.status(500).json({ message: "Failed to send OTP. Please try again." });
+  }
 });
+
 
 const verifyEmail = asyncHandler(async (req, res) => {
   const { email, otp } = req.body;
-  const student = await Student.findOne({ email, isEmailVerified: false });
-  
-  if (!student) {
-    throw new Error("Registration request not found or already verified");
+  const pendingUser = await PendingRegistration.findOne({ email });
+
+  if (!pendingUser) {
+    return res
+      .status(400)
+      .json({ message: "Registration request not found or already verified." });
   }
 
-  await studentService.handleOTPVerification(student, otp);
-  
-  student.isEmailVerified = true;
-  await student.save();
+  // Check if OTP is expired
+  if (new Date() > new Date(pendingUser.otpExpiry)) {
+    return res
+      .status(400)
+      .json({ message: "OTP has expired. Please request a new one." });
+  }
 
+  // Verify OTP
+  if (pendingUser.otp !== otp) {
+    return res.status(400).json({ message: "Invalid OTP. Please try again." });
+  }
+
+  // Move user to Student collection
+  const student = await Student.create({
+    name: pendingUser.name,
+    email: pendingUser.email,
+    password: pendingUser.password,
+    mobile: pendingUser.mobile,
+    isEmailVerified: true,
+  });
+
+  // Delete from PendingRegistration
+  await PendingRegistration.deleteOne({ email });
+
+  // Generate JWT token
   const token = authService.generateToken(student.id);
 
+  // Send success email
   try {
     await sendRegistrationSuccessEmail(student.email, student.name);
   } catch (error) {
-    console.error('Error sending success email:', error);
+    console.error("Error sending success email:", error);
   }
 
   res.status(200).json({
-    message: "Registration completed successfully",
+    message: "Registration completed successfully!",
     token,
     student: {
       id: student.id,
       name: student.name,
-      email: student.email
-    }
+      email: student.email,
+    },
   });
 });
 
 const initiateLogin = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
-  authService.validateRequiredFields({ email, password }, ['email', 'password']);
+  authService.validateRequiredFields({ email, password }, [
+    "email",
+    "password",
+  ]);
 
   const student = await Student.findOne({ email });
   if (!student || !(await bcrypt.compare(password, student.password))) {
@@ -145,22 +181,24 @@ const initiateLogin = asyncHandler(async (req, res) => {
   }
 
   if (student.accountLocked && student.lockUntil > new Date()) {
-    throw new Error(`Account locked. Try again after ${student.lockUntil.toLocaleString()}`);
+    throw new Error(
+      `Account locked. Try again after ${student.lockUntil.toLocaleString()}`
+    );
   }
 
   const otp = generateOTP();
   Object.assign(student, {
     otp,
     otpExpiry: getOTPExpiry(),
-    otpType: 'login'
+    otpType: "login",
   });
   await student.save();
 
-  await sendOTPEmail(email, otp, 'login');
+  await sendOTPEmail(email, otp, "login");
 
   res.status(200).json({
     message: "Please enter the OTP sent to your email",
-    email: student.email
+    email: student.email,
   });
 });
 
@@ -179,7 +217,7 @@ const verifyLogin = asyncHandler(async (req, res) => {
   try {
     await sendLoginSuccessEmail(student.email, student.name);
   } catch (error) {
-    console.error('Error sending login success email:', error);
+    console.error("Error sending login success email:", error);
   }
 
   res.status(200).json({
@@ -188,8 +226,8 @@ const verifyLogin = asyncHandler(async (req, res) => {
     student: {
       id: student.id,
       name: student.name,
-      email: student.email
-    }
+      email: student.email,
+    },
   });
 });
 
@@ -205,15 +243,15 @@ const forgotPassword = asyncHandler(async (req, res) => {
   Object.assign(student, {
     otp,
     otpExpiry: getOTPExpiry(),
-    otpType: 'reset'
+    otpType: "reset",
   });
   await student.save();
 
-  await sendOTPEmail(email, otp, 'reset');
+  await sendOTPEmail(email, otp, "reset");
 
   res.status(200).json({
     message: "Please enter the OTP sent to your email to reset password",
-    email: student.email
+    email: student.email,
   });
 });
 
@@ -233,18 +271,19 @@ const resetPassword = asyncHandler(async (req, res) => {
   try {
     await sendPasswordResetSuccessEmail(student.email, student.name);
   } catch (error) {
-    console.error('Error sending password reset success email:', error);
+    console.error("Error sending password reset success email:", error);
   }
 
   res.status(200).json({
     message: "Password reset successful",
-    email: student.email
+    email: student.email,
   });
 });
 
 const getStudentProfile = asyncHandler(async (req, res) => {
-  const student = await Student.findById(req.user.id)
-    .select('-password -otp -otpExpiry -otpAttempts -otpType');
+  const student = await Student.findById(req.user.id).select(
+    "-password -otp -otpExpiry -otpAttempts -otpType"
+  );
 
   if (!student) {
     throw new Error("Student not found");
@@ -254,7 +293,7 @@ const getStudentProfile = asyncHandler(async (req, res) => {
 });
 
 const updateStudentProfile = asyncHandler(async (req, res) => {
-  const { name, phone, branch, cgpa, resume_link } = req.body;
+  const { name, mobile } = req.body;
   const student = await Student.findById(req.user.id);
 
   if (!student) {
@@ -263,86 +302,19 @@ const updateStudentProfile = asyncHandler(async (req, res) => {
 
   const updateFields = {
     ...(name && { name }),
-    ...(phone && { phone }),
-    ...(branch && { branch }),
-    ...(cgpa && { cgpa }),
-    ...(resume_link && { resume_link })
+    ...(mobile && { mobile }),
   };
 
   const updatedStudent = await Student.findByIdAndUpdate(
     req.user.id,
     updateFields,
-    { new: true, select: '-password -otp -otpExpiry -otpAttempts -otpType' }
+    { new: true, select: "-password -otp -otpExpiry -otpAttempts -otpType" }
   );
 
   res.status(200).json({
     message: "Profile updated successfully",
-    student: updatedStudent
+    student: updatedStudent,
   });
-});
-
-const applyJob = asyncHandler(async (req, res) => {
-  const [job, student] = await Promise.all([
-    JobPost.findById(req.params.jobId),
-    Student.findById(req.user.id)
-  ]);
-
-  if (!job) {
-    throw new Error("Job not found");
-  }
-
-  if (job.deadline && new Date(job.deadline) < new Date()) {
-    throw new Error("Application deadline has passed");
-  }
-
-  if (job.minimumCGPA && student.cgpa < job.minimumCGPA) {
-    throw new Error(`Minimum CGPA requirement (${job.minimumCGPA}) not met`);
-  }
-
-  if (student.appliedJobs.includes(req.params.jobId)) {
-    throw new Error("Already applied for this job");
-  }
-
-  await Promise.all([
-    Student.findByIdAndUpdate(student.id, { $push: { appliedJobs: job.id } }),
-    JobPost.findByIdAndUpdate(job.id, { $push: { applicants: student.id } })
-  ]);
-
-  res.status(200).json({
-    message: "Successfully applied for the job",
-    jobTitle: job.title,
-    company: job.company,
-    applicationDate: new Date()
-  });
-});
-
-const getAppliedJobs = asyncHandler(async (req, res) => {
-  const student = await Student.findById(req.user.id)
-    .populate({
-      path: 'appliedJobs',
-      select: 'title company location salary description status deadline',
-      match: { status: { $ne: 'closed' } }
-    });
-
-  if (!student) {
-    throw new Error("Student not found");
-  }
-
-  const appliedJobs = student.appliedJobs.map(job => ({
-    id: job._id,
-    title: job.title,
-    company: job.company,
-    location: job.location,
-    salary: job.salary,
-    description: job.description,
-    status: job.status,
-    deadline: job.deadline,
-    appliedDate: job.applicants.find(
-      applicant => applicant.student.toString() === req.user.id
-    )?.appliedDate
-  }));
-
-  res.status(200).json(appliedJobs);
 });
 
 module.exports = {
@@ -354,6 +326,4 @@ module.exports = {
   resetPassword,
   getStudentProfile,
   updateStudentProfile,
-  applyJob,
-  getAppliedJobs
 };

@@ -8,8 +8,6 @@ const {
   resetPassword,
   getStudentProfile,
   updateStudentProfile,
-  applyJob,
-  getAppliedJobs,
 } = require("../controllers/studentController");
 
 const authMiddleware = require("../middlewares/authMiddleware");
@@ -34,10 +32,7 @@ const router = express.Router();
  *               - name
  *               - email
  *               - password
- *               - enrollment_no
- *               - branch
- *               - cgpa
- *               - resume_link
+ *               - mobile
  *             properties:
  *               name:
  *                 type: string
@@ -45,13 +40,7 @@ const router = express.Router();
  *                 type: string
  *               password:
  *                 type: string
- *               enrollment_no:
- *                 type: string
- *               branch:
- *                 type: string
- *               cgpa:
- *                 type: number
- *               resume_link:
+ *               mobile:
  *                 type: string
  *     responses:
  *       201:
@@ -209,7 +198,5 @@ router.post("/reset-password", resetPassword);
 // Existing protected routes
 router.get("/profile", authMiddleware, roleMiddleware("student"), getStudentProfile);
 router.put("/profile", authMiddleware, roleMiddleware("student"), updateStudentProfile);
-router.post("/apply/:jobId", authMiddleware, roleMiddleware("student"), applyJob);
-router.get("/applied-jobs", authMiddleware, roleMiddleware("student"), getAppliedJobs);
 
 module.exports = router;

@@ -1,7 +1,6 @@
 const jwt = require("jsonwebtoken");
 const asyncHandler = require("express-async-handler");
 const Student = require("../models/Student");
-const TpoAdmin = require("../models/TpoAdmin");
 
 /**
  * @desc Middleware to verify JWT and authenticate the user

@@ -5,9 +5,9 @@ const swaggerUi = require("swagger-ui-express");
 const swaggerDefinition = {
   openapi: "3.0.0", // Version of OpenAPI
   info: {
-    title: "TPO Job Post API", // API Title
+    title: "Smile Computer Education", // API Title
     version: "1.0.0", // API version
-    description: "API documentation for the TPO Job Post system", // API description
+    description: "API documentation for the Smile Computer Education", // API description
   },
   servers: [
     {
