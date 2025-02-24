@@ -111,58 +111,62 @@ const registerStudent = asyncHandler(async (req, res) => {
 
 const verifyEmail = asyncHandler(async (req, res) => {
   const { email, otp } = req.body;
-  const pendingUser = await PendingRegistration.findOne({ email });
 
-  if (!pendingUser) {
-    return res
-      .status(400)
-      .json({ message: "Registration request not found or already verified." });
-  }
+  // Check if the email exists in PendingRegistration (New Registration)
+  let pendingUser = await PendingRegistration.findOne({ email });
+  if (pendingUser) {
+    // Registration OTP Verification
+    if (new Date() > new Date(pendingUser.otpExpiry)) {
+      return res.status(400).json({ message: "OTP has expired. Please request a new one." });
+    }
 
-  // Check if OTP is expired
-  if (new Date() > new Date(pendingUser.otpExpiry)) {
-    return res
-      .status(400)
-      .json({ message: "OTP has expired. Please request a new one." });
-  }
+    if (pendingUser.otp !== otp) {
+      return res.status(400).json({ message: "Invalid OTP. Please try again." });
+    }
 
-  // Verify OTP
-  if (pendingUser.otp !== otp) {
-    return res.status(400).json({ message: "Invalid OTP. Please try again." });
-  }
+    // Move user to Student collection
+    const student = await Student.create({
+      name: pendingUser.name,
+      email: pendingUser.email,
+      password: pendingUser.password,
+      mobile: pendingUser.mobile,
+      isEmailVerified: true,
+    });
 
-  // Move user to Student collection
-  const student = await Student.create({
-    name: pendingUser.name,
-    email: pendingUser.email,
-    password: pendingUser.password,
-    mobile: pendingUser.mobile,
-    isEmailVerified: true,
-  });
+    await PendingRegistration.deleteOne({ email });
 
-  // Delete from PendingRegistration
-  await PendingRegistration.deleteOne({ email });
-
-  // Generate JWT token
-  const token = authService.generateToken(student.id);
-
-  // Send success email
-  try {
+    const token = authService.generateToken(student.id);
     await sendRegistrationSuccessEmail(student.email, student.name);
-  } catch (error) {
-    console.error("Error sending success email:", error);
+
+    return res.status(200).json({
+      message: "Email verified successfully! Registration completed.",
+      token,
+      student: { id: student.id, name: student.name, email: student.email },
+    });
   }
 
-  res.status(200).json({
-    message: "Registration completed successfully!",
-    token,
-    student: {
-      id: student.id,
-      name: student.name,
-      email: student.email,
-    },
-  });
+  // Check if the email exists in Student (Login OTP)
+  const student = await Student.findOne({ email });
+  if (!student) {
+    return res.status(400).json({ message: "User not found." });
+  }
+
+  // Verify OTP for login
+  try {
+    await studentService.handleOTPVerification(student, otp);
+    const token = authService.generateToken(student.id);
+    await sendLoginSuccessEmail(student.email, student.name);
+
+    return res.status(200).json({
+      message: "Login successful",
+      token,
+      student: { id: student.id, name: student.name, email: student.email },
+    });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
 });
+
 
 const initiateLogin = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
