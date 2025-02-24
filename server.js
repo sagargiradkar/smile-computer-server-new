@@ -24,6 +24,15 @@ if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev")); // Log HTTP requests in development mode
 }
 
+app.use(
+  cors({
+    origin: "*", // Allow all origins (for testing, later restrict to specific origins)
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
+
 // Base route for health check
 app.get("/", (req, res) => {
   res.send("Smile Compter Server is running...");
