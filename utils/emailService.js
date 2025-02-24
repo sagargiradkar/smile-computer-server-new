@@ -15,16 +15,6 @@ const transporter = nodemailer.createTransport({
   logger: true,
   debug: true,
 });
-
-// Verify transporter
-transporter.verify((error, success) => {
-  if (error) {
-    console.error("SMTP Connection Failed:", error);
-  } else {
-    console.log("SMTP Server is Ready to Take Messages");
-  }
-});
-
 // Enhanced email styles with Smile Computer Education branding
 const emailStyles = `
   .email-container {

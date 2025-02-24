@@ -108,7 +108,6 @@ const registerStudent = asyncHandler(async (req, res) => {
   }
 });
 
-
 const verifyEmail = asyncHandler(async (req, res) => {
   const { email, otp } = req.body;
 
@@ -117,11 +116,15 @@ const verifyEmail = asyncHandler(async (req, res) => {
   if (pendingUser) {
     // Registration OTP Verification
     if (new Date() > new Date(pendingUser.otpExpiry)) {
-      return res.status(400).json({ message: "OTP has expired. Please request a new one." });
+      return res
+        .status(400)
+        .json({ message: "OTP has expired. Please request a new one." });
     }
 
     if (pendingUser.otp !== otp) {
-      return res.status(400).json({ message: "Invalid OTP. Please try again." });
+      return res
+        .status(400)
+        .json({ message: "Invalid OTP. Please try again." });
     }
 
     // Move user to Student collection
@@ -166,7 +169,6 @@ const verifyEmail = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: error.message });
   }
 });
-
 
 const initiateLogin = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
@@ -284,42 +286,83 @@ const resetPassword = asyncHandler(async (req, res) => {
   });
 });
 
-const getStudentProfile = asyncHandler(async (req, res) => {
-  const student = await Student.findById(req.user.id).select(
-    "-password -otp -otpExpiry -otpAttempts -otpType"
-  );
+const getStudentProfile = async (req, res) => {
+  try {
+    const studentId = req.user.id; // Extract student ID from token
 
-  if (!student) {
-    throw new Error("Student not found");
+    const student = await Student.findById(studentId); // Fetch student by ID
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    res.status(200).json({
+      id: student._id,
+      name: student.name,
+      email: student.email,
+      mobile: student.mobile,
+      isEmailVerified: student.isEmailVerified,
+      createdAt: student.createdAt,
+      updatedAt: student.updatedAt,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
   }
+};
 
-  res.status(200).json(student);
-});
+const updateStudentProfile = async (req, res) => {
+  try {
+    const studentId = req.user.id; // Extract student ID from token
 
-const updateStudentProfile = asyncHandler(async (req, res) => {
-  const { name, mobile } = req.body;
-  const student = await Student.findById(req.user.id);
+    const { name, email, mobile, address, profilePhoto } = req.body; // Fields to update
 
-  if (!student) {
-    throw new Error("Student not found");
+    // Find the student by ID
+    let student = await Student.findById(studentId);
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    // Update only the provided fields
+    if (name) student.name = name;
+    if (email) student.email = email;
+    if (mobile) student.mobile = mobile;
+    if (address) student.address = address;
+    if (profilePhoto) student.profilePhoto = profilePhoto; // URL or base64 image
+
+    await student.save(); // Save the updated student
+
+    res.status(200).json({
+      message: "Profile updated successfully",
+      student: {
+        id: student._id,
+        name: student.name,
+        email: student.email,
+        mobile: student.mobile,
+        address: student.address,
+        profilePhoto: student.profilePhoto,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
   }
+};
 
-  const updateFields = {
-    ...(name && { name }),
-    ...(mobile && { mobile }),
-  };
+const deleteStudentProfile = async (req, res) => {
+  try {
+    const studentId = req.user.id; // Assuming authMiddleware sets req.user
 
-  const updatedStudent = await Student.findByIdAndUpdate(
-    req.user.id,
-    updateFields,
-    { new: true, select: "-password -otp -otpExpiry -otpAttempts -otpType" }
-  );
+    const deletedStudent = await Student.findByIdAndDelete(studentId);
 
-  res.status(200).json({
-    message: "Profile updated successfully",
-    student: updatedStudent,
-  });
-});
+    if (!deletedStudent) {
+      return res.status(404).json({ success: false, message: "Student not found." });
+    }
+
+    res.status(200).json({ success: true, message: "Student account deleted successfully." });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
+  }
+};
 
 module.exports = {
   registerStudent,
@@ -330,4 +373,5 @@ module.exports = {
   resetPassword,
   getStudentProfile,
   updateStudentProfile,
+  deleteStudentProfile
 };

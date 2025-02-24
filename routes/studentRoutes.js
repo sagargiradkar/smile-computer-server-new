@@ -3,11 +3,11 @@ const {
   registerStudent,
   verifyEmail,
   initiateLogin,
-  verifyLogin,
   forgotPassword,
   resetPassword,
   getStudentProfile,
   updateStudentProfile,
+  deleteStudentProfile
 } = require("../controllers/studentController");
 
 const authMiddleware = require("../middlewares/authMiddleware");
@@ -110,35 +110,6 @@ router.post("/login", initiateLogin);
 
 /**
  * @swagger
- * /api/student/verify-login:
- *   post:
- *     summary: Complete login with OTP (Step 2)
- *     tags:
- *       - Student Authentication
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *               - otp
- *             properties:
- *               email:
- *                 type: string
- *               otp:
- *                 type: string
- *     responses:
- *       200:
- *         description: Login successful, returns JWT token
- *       400:
- *         description: Invalid or expired OTP
- */
-router.post("/verify-login", verifyLogin);
-
-/**
- * @swagger
  * /api/student/forgot-password:
  *   post:
  *     summary: Request password reset OTP
@@ -195,8 +166,103 @@ router.post("/forgot-password", forgotPassword);
  */
 router.post("/reset-password", resetPassword);
 
-// Existing protected routes
+/**
+ * @swagger
+ * /api/student/profile:
+ *   get:
+ *     summary: Get student profile
+ *     description: Retrieves the authenticated student's profile details.
+ *     tags:
+ *       - Student
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved student profile.
+ *       401:
+ *         description: Unauthorized - Token is missing or invalid.
+ *       403:
+ *         description: Forbidden - User does not have the required role.
+ *       500:
+ *         description: Internal Server Error.
+ */
 router.get("/profile", authMiddleware, roleMiddleware("student"), getStudentProfile);
+
+/**
+ * @swagger
+ * /api/student/profile:
+ *   put:
+ *     summary: Update student profile
+ *     description: Allows a student to update their profile details.
+ *     tags:
+ *       - Student
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               mobile:
+ *                 type: string
+ *               address:
+ *                 type: string
+ *               profilePhoto:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Successfully updated student profile.
+ *       400:
+ *         description: Bad Request - Invalid input data.
+ *       401:
+ *         description: Unauthorized - Token is missing or invalid.
+ *       403:
+ *         description: Forbidden - User does not have the required role.
+ *       500:
+ *         description: Internal Server Error.
+ */
 router.put("/profile", authMiddleware, roleMiddleware("student"), updateStudentProfile);
+
+/**
+ * @swagger
+ * /api/student/profile:
+ *   delete:
+ *     summary: Delete student profile
+ *     description: Allows a student to delete their own account permanently.
+ *     tags: 
+ *       - Student
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully deleted student profile.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Student account deleted successfully."
+ *       401:
+ *         description: Unauthorized - Token is missing or invalid.
+ *       403:
+ *         description: Forbidden - User does not have the required role.
+ *       404:
+ *         description: Student profile not found.
+ *       500:
+ *         description: Internal Server Error.
+ */
+
+router.delete("/profile", authMiddleware, roleMiddleware("student"), deleteStudentProfile);
 
 module.exports = router;

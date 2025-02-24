@@ -1,24 +1,21 @@
 const asyncHandler = require("express-async-handler");
 
-/**
- * @desc Middleware to restrict access based on user roles
- * @param {...string} allowedRoles - Roles allowed to access the route
- */
-const roleMiddleware = (...allowedRoles) => {
-  return asyncHandler((req, res, next) => {
-    // Ensure the `req.user` object exists (populated by authMiddleware)
+const roleMiddleware = (requiredRole) => {
+  return asyncHandler(async (req, res, next) => {
+    console.log("Checking Role in Middleware:", req.user); // Debug log
+
     if (!req.user || !req.user.role) {
-      res.status(403);
-      throw new Error("Access denied. No role found.");
+      console.error("Unauthorized access attempt - No role found");
+      return res.status(401).json({ message: "Access denied. No role found." });
     }
 
-    // Check if the user's role is in the list of allowed roles
-    if (!allowedRoles.includes(req.user.role)) {
-      res.status(403);
-      throw new Error("Access denied. Insufficient permissions.");
+    if (req.user.role !== requiredRole) {
+      console.error(`Unauthorized access attempt - Role mismatch. Required: ${requiredRole}, Found: ${req.user.role}`);
+      return res.status(403).json({ message: "Forbidden. Insufficient role privileges." });
     }
 
-    next(); // Proceed to the next middleware or route handler
+    console.log("Role authorized ✅");
+    next(); // Proceed if role matches
   });
 };
 
