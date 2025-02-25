@@ -11,7 +11,7 @@ const swaggerDefinition = {
   },
   servers: [
     {
-      url: "http://localhost:5000", // Your server URL (adjust port if needed)
+      url: "http://localhost:4000", // Your server URL (adjust port if needed)
       description: "Local server",
     },
   ],
